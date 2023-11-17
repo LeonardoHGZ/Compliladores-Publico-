@@ -1,0 +1,164 @@
+import re
+import tkinter as tk
+from tkinter import ttk
+
+
+class Lexer:
+    def __init__(self):
+        self.reservada_keywords = ['if', 'else', 'while', 'for', 'int', 'float', 'string', 'Console', 'class', 'public', 'static', 'void', 'Main']
+        self.Simboloss = ['+', '-', '*', '/', '=', '==', '!=', '<', '>', '<=', '>=', '(', ')', '{', '}', ';', ',', '"', "'"]
+        self.token_patterns = [
+            ('Cadena', r'"(?:[^"\\]|\\.)*"'),
+            ('VARIABLE', r'\$\w+'),
+            ('Numero', r'\d+(\.\d+)?'),
+            ('reservada', '|'.join(r'\b' + re.escape(keyword) + r'\b' for keyword in self.reservada_keywords)),
+            ('Identificador', r'[A-Za-z_][A-Za-z0-9_]*'),
+            ('Simbolos', '|'.join(map(re.escape, self.Simboloss))),
+            ('SPACE', r'\s+'),
+        ]
+        self.token_regex = '|'.join(f'(?P<{name}>{pattern})' for name, pattern in self.token_patterns)
+        self.token_pattern = re.compile(self.token_regex)
+
+    def tokenize(self, text):
+        tokens = []
+        position = 0
+        while position < len(text):
+            match = self.token_pattern.match(text, position)
+            if match:
+                token_type = match.lastgroup
+                if token_type != 'SPACE':
+                    token_value = match.group(token_type)
+                    tokens.append((token_type, token_value))
+                position = match.end()
+            else:
+                position += 1
+        return tokens
+
+class LexerApp:
+    def __init__(self):
+        self.windows = tk.Tk()
+        self.windows.title("C# Lexer")
+
+        # Header
+        self.header_label = tk.Label(self.windows, text="C# Lexer", height=2, font=("Arial", 20, 'bold'), fg="#ffffff", bg="#3498db")
+        self.header_label.pack(fill="x", pady=10)
+
+        # Text Input
+        self.text_input = tk.Text(self.windows, height=8, width=70, font=("Arial", 12))
+        self.text_input.pack(pady=10)
+
+        # Button Frame
+        self.button_frame = tk.Frame(self.windows)
+        self.button_frame.pack()
+
+        self.analyze_button = tk.Button(self.button_frame, text="Analyze", command=self.analyze_text, bg="#A8DF8E", font=("Arial", 14, 'bold'))
+        self.analyze_button.grid(row=0, column=0, padx=30, pady=10)
+
+        self.clean_button = tk.Button(self.button_frame, text="Clean", command=self.clean_text, bg="#FFC436", font=("Arial", 14, 'bold'))
+        self.clean_button.grid(row=0, column=1, padx=30, pady=10)
+
+        self.exit_button = tk.Button(self.button_frame, text="Exit", command=self.exit_app, bg="#FF6969", font=("Arial", 14, 'bold'))
+        self.exit_button.grid(row=0, column=2, padx=30, pady=10)
+
+        # Tree Frame
+        self.tree_frame = tk.Frame(self.windows)
+        self.tree_frame.pack()
+
+        self.tree = ttk.Treeview(self.tree_frame, columns=("Linea", "Token", "Funcion", "Reservada", "Cadena", "Identificador", "Símbolo", "Número"), show="headings")
+        self.tree.heading("Linea", text="Línea")
+        self.tree.heading("Token", text="Token")
+        self.tree.heading("Funcion", text="Función")
+        self.tree.heading("Reservada", text="Reservada")
+        self.tree.heading("Cadena", text="Cadena")
+        self.tree.heading("Identificador", text="Identificador")
+        self.tree.heading("Símbolo", text="Símbolo")
+        self.tree.heading("Número", text="Número")
+        self.tree.pack()
+
+        columns = ("Linea", "Token", "Funcion", "Reservada", "Cadena", "Identificador", "Símbolo", "Número")
+        column_widths = (70, 100, 80, 100, 70, 90, 70, 80)
+
+        for column, width in zip(columns, column_widths):
+            self.tree.column(column, anchor="center", width=width)
+
+        self.text_label = tk.Label(text=" ---- Contador de Elementos --- ", height=1, width=50, font=("Arial", 15, 'bold'), fg="#141E46")
+        self.text_label.pack(pady=1)
+
+        self.count_tree = ttk.Treeview(self.windows, columns=("Elemento", "Cantidad"), show="headings")
+        self.count_tree.heading("Elemento", text="Elemento")
+        self.count_tree.heading("Cantidad", text="Cantidad")
+        self.count_tree.pack(pady=10)
+
+        columns = ("Elemento", "Cantidad")
+        column_widths = (300, 300)
+
+        for column, width in zip(columns, column_widths):
+            self.count_tree.column(column, anchor="center", width=width)
+
+    def analyze_text(self):
+        lexer = Lexer()
+        text = self.text_input.get("1.0", "end")
+        lines = text.split('\n')
+        tokens_by_line = [lexer.tokenize(line) for line in lines]
+
+        self.tree.delete(*self.tree.get_children())
+        self.count_tree.delete(*self.count_tree.get_children())
+
+        count_tokens = {
+            'Cadena': 0,
+            'reservada': 0,
+            'Numero': 0,
+            'Identificador': 0,
+            'Simbolos': 0
+        }
+
+        count_elements = {
+            ';': 0,
+            '(': 0,
+            ')': 0,
+            '{': 0,
+            '}': 0,
+        }
+
+        for line_number, line_tokens in enumerate(tokens_by_line, start=1):
+            for token_type, token_value in line_tokens:
+                row_data = [line_number, token_type, token_value, "", "", "", "", ""]
+                if token_type == 'Numero':
+                    row_data[7] = "x"
+                    count_tokens['Numero'] += 1
+                elif token_type == 'reservada':
+                    row_data[3] = "x"
+                    count_tokens['reservada'] += 1
+                elif token_type == 'Identificador':
+                    row_data[5] = "x"
+                    count_tokens['Identificador'] += 1
+                elif token_type == 'Simbolos':
+                    row_data[6] = "x"
+                    count_tokens['Simbolos'] += 1
+                    if token_value in count_elements:
+                        count_elements[token_value] += 1
+                elif token_type == 'Cadena':
+                    row_data[4] = "x"
+                    count_tokens['Cadena'] += 1
+
+                self.tree.insert("", "end", values=row_data)
+
+        for element, count in count_elements.items():
+            self.count_tree.insert("", "end", values=(element, count))
+
+        for token_type, count in count_tokens.items():
+            self.count_tree.insert("", "end", values=(token_type, count))
+
+    def clean_text(self):
+        self.text_input.delete("1.0", "end")
+        self.tree.delete(*self.tree.get_children())
+        self.count_tree.delete(*self.count_tree.get_children())
+
+    def exit_app(self):
+        self.windows.destroy()
+
+    def run(self):
+        self.windows.mainloop()
+
+app = LexerApp()
+app.run()
